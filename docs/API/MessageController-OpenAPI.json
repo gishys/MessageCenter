@@ -1,0 +1,1014 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Message Center API",
+    "description": "消息中心管理系统的完整API接口文档",
+    "version": "1.0.0",
+    "contact": {
+      "name": "API Support",
+      "email": "support@example.com"
+    }
+  },
+  "servers": [
+    {
+      "url": "https://api.example.com",
+      "description": "生产环境"
+    },
+    {
+      "url": "https://api-dev.example.com",
+      "description": "开发环境"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Messages",
+      "description": "消息管理相关接口"
+    }
+  ],
+  "paths": {
+    "/api/messages": {
+      "post": {
+        "tags": ["Messages"],
+        "summary": "创建并发送消息",
+        "description": "创建一条新消息并触发发送",
+        "operationId": "createMessage",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateMessageDto"
+              },
+              "example": {
+                "title": "系统通知",
+                "content": "这是一条测试消息",
+                "summary": "消息摘要",
+                "messageType": 1,
+                "channel": 1,
+                "priority": 2,
+                "receiverId": "user123",
+                "receiverName": "张三",
+                "businessType": "Order",
+                "businessId": "order001",
+                "maxRetryCount": 3
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "get": {
+        "tags": ["Messages"],
+        "summary": "查询消息列表",
+        "description": "根据查询条件获取消息列表（分页）",
+        "operationId": "getMessages",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ReceiverId"
+          },
+          {
+            "$ref": "#/components/parameters/SenderId"
+          },
+          {
+            "$ref": "#/components/parameters/MessageType"
+          },
+          {
+            "$ref": "#/components/parameters/Channel"
+          },
+          {
+            "$ref": "#/components/parameters/Status"
+          },
+          {
+            "$ref": "#/components/parameters/SkipCount"
+          },
+          {
+            "$ref": "#/components/parameters/MaxResultCount"
+          },
+          {
+            "$ref": "#/components/parameters/Sorting"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PagedResultDtoMessageDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/messages/batch": {
+      "post": {
+        "tags": ["Messages"],
+        "summary": "批量创建并发送消息",
+        "description": "批量创建多条消息并触发发送，最多支持1000条",
+        "operationId": "createBatchMessages",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/CreateMessageDto"
+                },
+                "maxItems": 1000
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/MessageDto"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": ["Messages"],
+        "summary": "批量删除消息",
+        "description": "批量删除多条消息",
+        "operationId": "deleteBatchMessages",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "成功"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/messages/{id}": {
+      "get": {
+        "tags": ["Messages"],
+        "summary": "根据ID获取消息",
+        "description": "获取指定ID的消息详情",
+        "operationId": "getMessage",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/MessageId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": ["Messages"],
+        "summary": "删除消息",
+        "description": "删除指定ID的消息",
+        "operationId": "deleteMessage",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/MessageId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/messages/receiver/{receiverId}": {
+      "get": {
+        "tags": ["Messages"],
+        "summary": "获取接收者的消息列表",
+        "description": "获取指定接收者的消息列表（分页）",
+        "operationId": "getReceiverMessages",
+        "parameters": [
+          {
+            "name": "receiverId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "接收者ID"
+          },
+          {
+            "$ref": "#/components/parameters/SkipCount"
+          },
+          {
+            "$ref": "#/components/parameters/MaxResultCount"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PagedResultDtoMessageDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/messages/{id}/read": {
+      "put": {
+        "tags": ["Messages"],
+        "summary": "标记消息为已读",
+        "description": "将指定消息标记为已读",
+        "operationId": "markAsRead",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/MessageId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/messages/read/batch": {
+      "put": {
+        "tags": ["Messages"],
+        "summary": "批量标记消息为已读",
+        "description": "批量将多条消息标记为已读",
+        "operationId": "markAsReadBatch",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "成功"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/messages/read/all/{receiverId}": {
+      "put": {
+        "tags": ["Messages"],
+        "summary": "标记所有消息为已读",
+        "description": "将指定接收者的所有消息标记为已读",
+        "operationId": "markAllAsRead",
+        "parameters": [
+          {
+            "name": "receiverId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/messages/unread-count/{receiverId}": {
+      "get": {
+        "tags": ["Messages"],
+        "summary": "获取未读消息数量",
+        "description": "获取指定接收者的未读消息数量",
+        "operationId": "getUnreadCount",
+        "parameters": [
+          {
+            "name": "receiverId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "integer",
+                  "format": "int64"
+                },
+                "example": 42
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/messages/statistics": {
+      "get": {
+        "tags": ["Messages"],
+        "summary": "获取消息统计信息",
+        "description": "获取消息的统计信息，包括按状态、类型、渠道的统计",
+        "operationId": "getStatistics",
+        "parameters": [
+          {
+            "name": "receiverId",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "接收者ID（可选）"
+          },
+          {
+            "name": "startTime",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "description": "开始时间（可选）"
+          },
+          {
+            "name": "endTime",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "description": "结束时间（可选）"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageStatisticsDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/messages/{id}/retry": {
+      "post": {
+        "tags": ["Messages"],
+        "summary": "重试发送失败的消息",
+        "description": "重试发送失败的消息",
+        "operationId": "retryMessage",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/MessageId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/messages/{id}/cancel": {
+      "post": {
+        "tags": ["Messages"],
+        "summary": "取消消息发送",
+        "description": "取消待发送或发送中的消息",
+        "operationId": "cancelMessage",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/MessageId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "JWT Bearer Token认证"
+      }
+    },
+    "parameters": {
+      "MessageId": {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "description": "消息ID"
+      },
+      "ReceiverId": {
+        "name": "receiverId",
+        "in": "query",
+        "schema": {
+          "type": "string"
+        },
+        "description": "接收者ID"
+      },
+      "SenderId": {
+        "name": "senderId",
+        "in": "query",
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "description": "发送者ID"
+      },
+      "MessageType": {
+        "name": "messageType",
+        "in": "query",
+        "schema": {
+          "$ref": "#/components/schemas/MessageType"
+        },
+        "description": "消息类型"
+      },
+      "Channel": {
+        "name": "channel",
+        "in": "query",
+        "schema": {
+          "$ref": "#/components/schemas/MessageChannel"
+        },
+        "description": "消息渠道"
+      },
+      "Status": {
+        "name": "status",
+        "in": "query",
+        "schema": {
+          "$ref": "#/components/schemas/MessageStatus"
+        },
+        "description": "消息状态"
+      },
+      "SkipCount": {
+        "name": "skipCount",
+        "in": "query",
+        "schema": {
+          "type": "integer",
+          "default": 0,
+          "minimum": 0
+        },
+        "description": "跳过数量"
+      },
+      "MaxResultCount": {
+        "name": "maxResultCount",
+        "in": "query",
+        "schema": {
+          "type": "integer",
+          "default": 10,
+          "minimum": 1,
+          "maximum": 1000
+        },
+        "description": "最大返回数量"
+      },
+      "Sorting": {
+        "name": "sorting",
+        "in": "query",
+        "schema": {
+          "type": "string"
+        },
+        "description": "排序字段，如 'creationTime desc'"
+      }
+    },
+    "schemas": {
+      "CreateMessageDto": {
+        "type": "object",
+        "required": ["title", "content", "messageType", "channel", "receiverId"],
+        "properties": {
+          "title": {
+            "type": "string",
+            "description": "消息标题",
+            "maxLength": 500
+          },
+          "content": {
+            "type": "string",
+            "description": "消息内容",
+            "maxLength": 10000
+          },
+          "summary": {
+            "type": "string",
+            "description": "消息摘要",
+            "maxLength": 1000
+          },
+          "messageType": {
+            "$ref": "#/components/schemas/MessageType"
+          },
+          "channel": {
+            "$ref": "#/components/schemas/MessageChannel"
+          },
+          "priority": {
+            "$ref": "#/components/schemas/MessagePriority"
+          },
+          "senderId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "发送者ID"
+          },
+          "senderName": {
+            "type": "string",
+            "description": "发送者名称"
+          },
+          "receiverId": {
+            "type": "string",
+            "description": "接收者ID（单个）"
+          },
+          "receiverIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "接收者ID列表（批量）"
+          },
+          "receiverName": {
+            "type": "string",
+            "description": "接收者名称"
+          },
+          "receiverEmail": {
+            "type": "string",
+            "format": "email",
+            "description": "接收者邮箱"
+          },
+          "receiverPhone": {
+            "type": "string",
+            "description": "接收者手机号"
+          },
+          "templateId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "消息模板ID"
+          },
+          "templateVariables": {
+            "type": "string",
+            "description": "模板变量（JSON格式）"
+          },
+          "businessType": {
+            "type": "string",
+            "description": "业务类型"
+          },
+          "businessId": {
+            "type": "string",
+            "description": "业务ID"
+          },
+          "scheduledSendTime": {
+            "type": "string",
+            "format": "date-time",
+            "description": "计划发送时间"
+          },
+          "expirationTime": {
+            "type": "string",
+            "format": "date-time",
+            "description": "过期时间"
+          },
+          "extension": {
+            "type": "string",
+            "description": "扩展属性（JSON格式）"
+          },
+          "tags": {
+            "type": "string",
+            "description": "消息标签"
+          },
+          "linkUrl": {
+            "type": "string",
+            "format": "uri",
+            "description": "消息链接"
+          },
+          "attachmentIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "附件ID列表"
+          },
+          "maxRetryCount": {
+            "type": "integer",
+            "default": 3,
+            "minimum": 0,
+            "maximum": 10,
+            "description": "最大重试次数"
+          }
+        }
+      },
+      "MessageDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string"
+          },
+          "content": {
+            "type": "string"
+          },
+          "summary": {
+            "type": "string"
+          },
+          "messageType": {
+            "$ref": "#/components/schemas/MessageType"
+          },
+          "channel": {
+            "$ref": "#/components/schemas/MessageChannel"
+          },
+          "status": {
+            "$ref": "#/components/schemas/MessageStatus"
+          },
+          "priority": {
+            "$ref": "#/components/schemas/MessagePriority"
+          },
+          "senderId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "senderName": {
+            "type": "string"
+          },
+          "receiverId": {
+            "type": "string"
+          },
+          "receiverName": {
+            "type": "string"
+          },
+          "receiverEmail": {
+            "type": "string",
+            "format": "email"
+          },
+          "receiverPhone": {
+            "type": "string"
+          },
+          "templateId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "businessType": {
+            "type": "string"
+          },
+          "businessId": {
+            "type": "string"
+          },
+          "scheduledSendTime": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "actualSendTime": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "deliveredTime": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "readTime": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "expirationTime": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "retryCount": {
+            "type": "integer"
+          },
+          "maxRetryCount": {
+            "type": "integer"
+          },
+          "failureReason": {
+            "type": "string"
+          },
+          "extension": {
+            "type": "string"
+          },
+          "tags": {
+            "type": "string"
+          },
+          "linkUrl": {
+            "type": "string",
+            "format": "uri"
+          },
+          "attachmentIds": {
+            "type": "string"
+          },
+          "isRead": {
+            "type": "boolean"
+          },
+          "creationTime": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "lastModificationTime": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "PagedResultDtoMessageDto": {
+        "type": "object",
+        "properties": {
+          "totalCount": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MessageDto"
+            }
+          }
+        }
+      },
+      "MessageStatisticsDto": {
+        "type": "object",
+        "properties": {
+          "totalCount": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "unreadCount": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "readCount": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "statusStatistics": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          "typeStatistics": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          "channelStatistics": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          "startTime": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "endTime": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "MessageType": {
+        "type": "integer",
+        "enum": [1, 2, 3, 4, 5, 6, 7, 8],
+        "description": "消息类型：1-通知, 2-工作流, 3-警报, 4-事务, 5-营销, 6-社交, 7-系统, 8-实时"
+      },
+      "MessageChannel": {
+        "type": "integer",
+        "enum": [1, 2, 3, 4, 5, 6, 7, 8],
+        "description": "消息渠道：1-站内信, 2-邮件, 3-短信, 4-推送, 5-微信, 6-钉钉, 7-WebSocket, 8-外部"
+      },
+      "MessageStatus": {
+        "type": "integer",
+        "enum": [1, 2, 3, 4, 5, 6, 7, 8],
+        "description": "消息状态：1-待发送, 2-发送中, 3-已发送, 4-已送达, 5-已读, 6-失败, 7-已取消, 8-已过期"
+      },
+      "MessagePriority": {
+        "type": "integer",
+        "enum": [1, 2, 3, 4],
+        "description": "消息优先级：1-低, 2-普通, 3-高, 4-紧急"
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string"
+              },
+              "message": {
+                "type": "string"
+              },
+              "details": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    "responses": {
+      "BadRequest": {
+        "description": "请求参数错误",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
+          }
+        }
+      },
+      "Unauthorized": {
+        "description": "未授权",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
+          }
+        }
+      },
+      "NotFound": {
+        "description": "资源不存在",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
+          }
+        }
+      },
+      "InternalServerError": {
+        "description": "服务器内部错误",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
+          }
+        }
+      }
+    }
+  }
+}

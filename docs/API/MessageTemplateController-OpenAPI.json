@@ -1,0 +1,510 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Message Template Center API",
+    "description": "消息模板管理系统的完整API接口文档",
+    "version": "1.0.0",
+    "contact": {
+      "name": "API Support",
+      "email": "support@example.com"
+    }
+  },
+  "servers": [
+    {
+      "url": "https://api.example.com",
+      "description": "生产环境"
+    },
+    {
+      "url": "https://api-dev.example.com",
+      "description": "开发环境"
+    }
+  ],
+  "tags": [
+    {
+      "name": "MessageTemplates",
+      "description": "消息模板管理相关接口"
+    }
+  ],
+  "paths": {
+    "/api/message-templates": {
+      "post": {
+        "tags": ["MessageTemplates"],
+        "summary": "创建消息模板",
+        "description": "创建一个新的消息模板",
+        "operationId": "createTemplate",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateMessageTemplateDto"
+              },
+              "example": {
+                "name": "订单通知模板",
+                "code": "ORDER_NOTIFICATION",
+                "templateType": 1,
+                "messageType": 4,
+                "channel": 1,
+                "title": "订单{{orderNo}}已{{status}}",
+                "content": "尊敬的{{userName}}，您的订单{{orderNo}}已{{status}}，订单金额：{{amount}}元。",
+                "description": "用于订单状态变更通知的模板",
+                "isEnabled": true,
+                "variables": "{\"orderNo\":\"订单号\",\"status\":\"订单状态\",\"userName\":\"用户名称\",\"amount\":\"订单金额\"}"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageTemplateDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "get": {
+        "tags": ["MessageTemplates"],
+        "summary": "获取消息模板列表",
+        "description": "获取所有消息模板的列表",
+        "operationId": "getTemplates",
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/MessageTemplateDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/message-templates/{id}": {
+      "get": {
+        "tags": ["MessageTemplates"],
+        "summary": "根据ID获取消息模板",
+        "description": "获取指定ID的模板详情",
+        "operationId": "getTemplate",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/TemplateId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageTemplateDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "put": {
+        "tags": ["MessageTemplates"],
+        "summary": "更新消息模板",
+        "description": "更新指定ID的消息模板",
+        "operationId": "updateTemplate",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/TemplateId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateMessageTemplateDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageTemplateDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": ["MessageTemplates"],
+        "summary": "删除消息模板",
+        "description": "删除指定ID的消息模板",
+        "operationId": "deleteTemplate",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/TemplateId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/message-templates/code/{code}": {
+      "get": {
+        "tags": ["MessageTemplates"],
+        "summary": "根据代码获取消息模板",
+        "description": "根据模板代码获取模板详情",
+        "operationId": "getTemplateByCode",
+        "parameters": [
+          {
+            "name": "code",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "模板代码"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageTemplateDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/message-templates/{id}/enabled": {
+      "put": {
+        "tags": ["MessageTemplates"],
+        "summary": "启用/禁用消息模板",
+        "description": "启用或禁用指定的消息模板",
+        "operationId": "setTemplateEnabled",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/TemplateId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "boolean",
+                "description": "是否启用，true为启用，false为禁用"
+              },
+              "example": false
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "成功"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "JWT Bearer Token认证"
+      }
+    },
+    "parameters": {
+      "TemplateId": {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "description": "模板ID"
+      }
+    },
+    "schemas": {
+      "CreateMessageTemplateDto": {
+        "type": "object",
+        "required": ["name", "code", "templateType", "messageType", "channel", "title", "content"],
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "模板名称",
+            "maxLength": 200
+          },
+          "code": {
+            "type": "string",
+            "description": "模板代码（唯一标识）",
+            "maxLength": 100
+          },
+          "templateType": {
+            "$ref": "#/components/schemas/TemplateType"
+          },
+          "messageType": {
+            "$ref": "#/components/schemas/MessageType"
+          },
+          "channel": {
+            "$ref": "#/components/schemas/MessageChannel"
+          },
+          "title": {
+            "type": "string",
+            "description": "模板标题",
+            "maxLength": 500
+          },
+          "content": {
+            "type": "string",
+            "description": "模板内容"
+          },
+          "description": {
+            "type": "string",
+            "description": "模板描述",
+            "maxLength": 1000
+          },
+          "isEnabled": {
+            "type": "boolean",
+            "description": "是否启用",
+            "default": true
+          },
+          "variables": {
+            "type": "string",
+            "description": "模板变量说明（JSON格式）"
+          },
+          "extension": {
+            "type": "string",
+            "description": "扩展属性（JSON格式）"
+          }
+        }
+      },
+      "MessageTemplateDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          },
+          "templateType": {
+            "$ref": "#/components/schemas/TemplateType"
+          },
+          "messageType": {
+            "$ref": "#/components/schemas/MessageType"
+          },
+          "channel": {
+            "$ref": "#/components/schemas/MessageChannel"
+          },
+          "title": {
+            "type": "string"
+          },
+          "content": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "isEnabled": {
+            "type": "boolean"
+          },
+          "variables": {
+            "type": "string"
+          },
+          "extension": {
+            "type": "string"
+          },
+          "creationTime": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "lastModificationTime": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "TemplateType": {
+        "type": "integer",
+        "enum": [1, 2, 3, 4],
+        "description": "模板类型：1-文本, 2-HTML, 3-Markdown, 4-JSON"
+      },
+      "MessageType": {
+        "type": "integer",
+        "enum": [1, 2, 3, 4, 5, 6, 7, 8],
+        "description": "消息类型：1-通知, 2-工作流, 3-警报, 4-事务, 5-营销, 6-社交, 7-系统, 8-实时"
+      },
+      "MessageChannel": {
+        "type": "integer",
+        "enum": [1, 2, 3, 4, 5, 6, 7, 8],
+        "description": "消息渠道：1-站内信, 2-邮件, 3-短信, 4-推送, 5-微信, 6-钉钉, 7-WebSocket, 8-外部"
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string"
+              },
+              "message": {
+                "type": "string"
+              },
+              "details": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    "responses": {
+      "BadRequest": {
+        "description": "请求参数错误",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
+          }
+        }
+      },
+      "Unauthorized": {
+        "description": "未授权",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
+          }
+        }
+      },
+      "NotFound": {
+        "description": "资源不存在",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
+          }
+        }
+      },
+      "InternalServerError": {
+        "description": "服务器内部错误",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
+          }
+        }
+      }
+    }
+  }
+}
