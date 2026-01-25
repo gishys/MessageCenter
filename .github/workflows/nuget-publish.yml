@@ -1,0 +1,70 @@
+name: Multi-package NuGet Workflow
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '8.0.104'
+        
+    - name: Build and pack NuGet packages
+      run: |
+        version=$(echo "${{ github.event.release.tag_name }}" | cut -c 2-)
+        echo "Setting version to $version"
+        
+        # Build and pack MessageCenter.Domain.Shared
+        dotnet build src/MessageCenter.Domain.Shared/MessageCenter.Domain.Shared.csproj -c Release
+        dotnet pack src/MessageCenter.Domain.Shared/MessageCenter.Domain.Shared.csproj -c Release -o ./src/MessageCenter.Domain.Shared /p:PackageVersion=$version
+        
+        # Build and pack MessageCenter.Domain
+        dotnet build src/MessageCenter.Domain/MessageCenter.Domain.csproj -c Release
+        dotnet pack src/MessageCenter.Domain/MessageCenter.Domain.csproj -c Release -o ./src/MessageCenter.Domain /p:PackageVersion=$version
+        
+        # Build and pack MessageCenter.Application.Contracts
+        dotnet build src/MessageCenter.Application.Contracts/MessageCenter.Application.Contracts.csproj -c Release
+        dotnet pack src/MessageCenter.Application.Contracts/MessageCenter.Application.Contracts.csproj -c Release -o ./src/MessageCenter.Application.Contracts /p:PackageVersion=$version
+        
+        # Build and pack MessageCenter.Application
+        dotnet build src/MessageCenter.Application/MessageCenter.Application.csproj -c Release
+        dotnet pack src/MessageCenter.Application/MessageCenter.Application.csproj -c Release -o ./src/MessageCenter.Application /p:PackageVersion=$version
+        
+        # Build and pack MessageCenter.EntityFrameworkCore
+        dotnet build src/MessageCenter.EntityFrameworkCore/MessageCenter.EntityFrameworkCore.csproj -c Release
+        dotnet pack src/MessageCenter.EntityFrameworkCore/MessageCenter.EntityFrameworkCore.csproj -c Release -o ./src/MessageCenter.EntityFrameworkCore /p:PackageVersion=$version
+        
+        # Build and pack MessageCenter.HttpApi
+        dotnet build src/MessageCenter.HttpApi/MessageCenter.HttpApi.csproj -c Release
+        dotnet pack src/MessageCenter.HttpApi/MessageCenter.HttpApi.csproj -c Release -o ./src/MessageCenter.HttpApi /p:PackageVersion=$version
+        
+        # Build and pack MessageCenter.Integration
+        dotnet build src/MessageCenter.Integration/MessageCenter.Integration.csproj -c Release
+        dotnet pack src/MessageCenter.Integration/MessageCenter.Integration.csproj -c Release -o ./src/MessageCenter.Integration /p:PackageVersion=$version
+        
+        # Copy all packages to workspace root
+        cp ./src/MessageCenter.Domain.Shared/*.nupkg $GITHUB_WORKSPACE
+        cp ./src/MessageCenter.Domain/*.nupkg $GITHUB_WORKSPACE
+        cp ./src/MessageCenter.Application.Contracts/*.nupkg $GITHUB_WORKSPACE
+        cp ./src/MessageCenter.Application/*.nupkg $GITHUB_WORKSPACE
+        cp ./src/MessageCenter.EntityFrameworkCore/*.nupkg $GITHUB_WORKSPACE
+        cp ./src/MessageCenter.HttpApi/*.nupkg $GITHUB_WORKSPACE
+        cp ./src/MessageCenter.Integration/*.nupkg $GITHUB_WORKSPACE
+
+    - name: Push NuGet packages
+      run: |
+        dotnet nuget push ./src/MessageCenter.Domain.Shared/*.nupkg --source https://api.nuget.org/v3/index.json --api-key ${{ secrets.NUGET_API_KEY }} --skip-duplicate
+        dotnet nuget push ./src/MessageCenter.Domain/*.nupkg --source https://api.nuget.org/v3/index.json --api-key ${{ secrets.NUGET_API_KEY }} --skip-duplicate
+        dotnet nuget push ./src/MessageCenter.Application.Contracts/*.nupkg --source https://api.nuget.org/v3/index.json --api-key ${{ secrets.NUGET_API_KEY }} --skip-duplicate
+        dotnet nuget push ./src/MessageCenter.Application/*.nupkg --source https://api.nuget.org/v3/index.json --api-key ${{ secrets.NUGET_API_KEY }} --skip-duplicate
+        dotnet nuget push ./src/MessageCenter.EntityFrameworkCore/*.nupkg --source https://api.nuget.org/v3/index.json --api-key ${{ secrets.NUGET_API_KEY }} --skip-duplicate
+        dotnet nuget push ./src/MessageCenter.HttpApi/*.nupkg --source https://api.nuget.org/v3/index.json --api-key ${{ secrets.NUGET_API_KEY }} --skip-duplicate
+        dotnet nuget push ./src/MessageCenter.Integration/*.nupkg --source https://api.nuget.org/v3/index.json --api-key ${{ secrets.NUGET_API_KEY }} --skip-duplicate
