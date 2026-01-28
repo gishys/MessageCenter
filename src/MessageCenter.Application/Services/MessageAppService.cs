@@ -1,4 +1,5 @@
 using MessageCenter.Application.Contracts.DTOs;
+using MessageCenter.Application.Contracts.Events;
 using MessageCenter.Application.Contracts.Services;
 using MessageCenter.Domain.Entities;
 using MessageCenter.Domain.Repositories;
@@ -9,6 +10,7 @@ using System.Linq.Dynamic.Core;
 using Volo.Abp.Application.Dtos;
 using Volo.Abp.Application.Services;
 using Volo.Abp.Domain.Repositories;
+using Volo.Abp.EventBus.Distributed;
 
 namespace MessageCenter.Application.Services;
 
@@ -19,11 +21,13 @@ public class MessageAppService(
     IMessageRepository messageRepository,
     IRepository<MessageReceipt, Guid> receiptRepository,
     IMessageTemplateRepository templateRepository,
+    IDistributedEventBus distributedEventBus,
     IMessageRealtimeService? realtimeService = null) : ApplicationService, IMessageAppService
 {
     private readonly IMessageRepository _messageRepository = messageRepository;
     private readonly IRepository<MessageReceipt, Guid> _receiptRepository = receiptRepository;
     private readonly IMessageTemplateRepository _templateRepository = templateRepository;
+    private readonly IDistributedEventBus _distributedEventBus = distributedEventBus;
     private readonly IMessageRealtimeService? _realtimeService = realtimeService;
 
     public virtual async Task<MessageDto> CreateAsync(CreateMessageDto input)
@@ -90,6 +94,25 @@ public class MessageAppService(
         await _receiptRepository.InsertManyAsync(receipts);
 
         var messageDtos = ObjectMapper.Map<List<Message>, List<MessageDto>>(messages);
+
+        // 发布批量消息创建事件，供外部模块订阅
+        try
+        {
+            var receiverIds = messageDtos.Select(m => m.ReceiverId).Distinct().ToList();
+            var businessType = messageDtos.FirstOrDefault()?.BusinessType;
+            
+            await _distributedEventBus.PublishAsync(new MessageBatchCreatedEvent
+            {
+                Messages = messageDtos,
+                ReceiverIds = receiverIds,
+                ShouldPushRealtime = messageDtos.Any(m => m.Channel == MessageChannel.InApp),
+                BusinessType = businessType
+            });
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "发布批量消息创建事件失败");
+        }
 
         // 实时推送消息（如果支持实时通信）
         if (_realtimeService != null)
@@ -267,8 +290,28 @@ public class MessageAppService(
             await _receiptRepository.UpdateAsync(receipt);
         }
 
-        message.MarkAsRead(DateTime.UtcNow);
+        var readTime = DateTime.UtcNow;
+        message.MarkAsRead(readTime);
         await _messageRepository.UpdateAsync(message);
+
+        // 发布消息已读事件，供外部模块订阅
+        try
+        {
+            var messageDto = ObjectMapper.Map<Message, MessageDto>(message);
+            await _distributedEventBus.PublishAsync(new MessageReadEvent
+            {
+                MessageId = message.Id,
+                ReceiverId = message.ReceiverId,
+                Message = messageDto,
+                BusinessType = message.BusinessType,
+                BusinessId = message.BusinessId,
+                ReadTime = readTime
+            });
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "发布消息已读事件失败，消息ID: {MessageId}", message.Id);
+        }
 
         // 实时通知状态变更
         if (_realtimeService != null)
@@ -334,17 +377,64 @@ public class MessageAppService(
 
     public virtual async Task DeleteAsync(Guid id)
     {
+        // 获取消息信息，用于发布事件
+        var message = await _messageRepository.FirstOrDefaultAsync(m => m.Id == id);
+        
         await _messageRepository.DeleteAsync(id);
         // 同时删除接收记录
         var receipts = await _receiptRepository.GetListAsync(r => r.MessageId == id);
         await _receiptRepository.DeleteManyAsync(receipts);
+
+        // 发布消息删除事件，供外部模块订阅
+        if (message != null)
+        {
+            try
+            {
+                await _distributedEventBus.PublishAsync(new MessageDeletedEvent
+                {
+                    MessageId = id,
+                    ReceiverId = message.ReceiverId,
+                    BusinessType = message.BusinessType,
+                    BusinessId = message.BusinessId,
+                    DeletedTime = DateTime.UtcNow
+                });
+            }
+            catch (Exception ex)
+            {
+                Logger.LogWarning(ex, "发布消息删除事件失败，消息ID: {MessageId}", id);
+            }
+        }
     }
 
     public virtual async Task DeleteBatchAsync(List<Guid> ids)
     {
+        // 获取消息信息，用于发布事件
+        var messages = await _messageRepository.GetListAsync(m => ids.Contains(m.Id));
+        var deletedTime = DateTime.UtcNow;
+
         await _messageRepository.DeleteManyAsync(ids);
         var receipts = await _receiptRepository.GetListAsync(r => ids.Contains(r.MessageId));
         await _receiptRepository.DeleteManyAsync(receipts);
+
+        // 发布批量消息删除事件
+        foreach (var message in messages)
+        {
+            try
+            {
+                await _distributedEventBus.PublishAsync(new MessageDeletedEvent
+                {
+                    MessageId = message.Id,
+                    ReceiverId = message.ReceiverId,
+                    BusinessType = message.BusinessType,
+                    BusinessId = message.BusinessId,
+                    DeletedTime = deletedTime
+                });
+            }
+            catch (Exception ex)
+            {
+                Logger.LogWarning(ex, "发布消息删除事件失败，消息ID: {MessageId}", message.Id);
+            }
+        }
     }
 
     public virtual async Task<long> GetUnreadCountAsync(string receiverId)
