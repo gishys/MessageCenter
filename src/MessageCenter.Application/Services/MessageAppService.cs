@@ -339,10 +339,7 @@ public class MessageAppService(
         foreach (var message in messages)
         {
             var receipt = receipts.FirstOrDefault(r => r.MessageId == message.Id && r.ReceiverId == message.ReceiverId);
-            if (receipt != null)
-            {
-                receipt.MarkAsRead(now);
-            }
+            receipt?.MarkAsRead(now);
             message.MarkAsRead(now);
         }
 
@@ -499,7 +496,49 @@ public class MessageAppService(
         message.Status = MessageStatus.Pending;
         await _messageRepository.UpdateAsync(message);
 
-        // TODO: 触发消息发送任务
+        // TODO: 触发消息发送任务；若再次失败应调用 MarkAsFailedAndPublishEventAsync
+    }
+
+    /// <summary>
+    /// 将消息标记为发送失败并发布 <see cref="MessageFailedEvent"/>，供外部订阅告警/重试等。
+    /// </summary>
+    /// <remarks>
+    /// <para><b>何时调用</b></para>
+    /// <list type="bullet">
+    /// <item>邮件/短信等发送任务执行失败，且不再重试时</item>
+    /// <item>重试逻辑达到最大重试次数仍失败时（如 <see cref="RetryAsync"/> 触发的发送任务失败）</item>
+    /// <item>外部通道（如第三方 API）返回不可重试错误时</item>
+    /// </list>
+    /// <para><b>调用方</b>：仅限本程序集（Application）内，例如发送服务在捕获到发送异常后调用。</para>
+    /// <para><b>行为</b>：先将消息状态标记为失败并持久化，再发布 MessageFailedEvent；若发布事件失败仅记录警告日志，不抛出异常。</para>
+    /// <para><b>外部订阅</b>：参见文档 MessageFailedEvent 的订阅方式与使用场景。</para>
+    /// </remarks>
+    /// <param name="messageId">要标记为失败的消息 ID</param>
+    /// <param name="failureReason">失败原因描述，会写入消息实体并随事件发布，便于告警与排查</param>
+    internal async Task MarkAsFailedAndPublishEventAsync(Guid messageId, string failureReason)
+    {
+        var message = await _messageRepository.GetAsync(messageId);
+        message.MarkAsFailed(failureReason);
+        await _messageRepository.UpdateAsync(message);
+
+        try
+        {
+            await _distributedEventBus.PublishAsync(new MessageFailedEvent
+            {
+                MessageId = message.Id,
+                ReceiverId = message.ReceiverId,
+                FailureReason = failureReason,
+                RetryCount = message.RetryCount,
+                MaxRetryCount = message.MaxRetryCount,
+                BusinessType = message.BusinessType,
+                BusinessId = message.BusinessId,
+                FailedTime = DateTime.UtcNow
+            });
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "发布 MessageFailedEvent 失败，消息ID: {MessageId}", messageId);
+        }
     }
 
     public virtual async Task CancelAsync(Guid id)

@@ -492,6 +492,20 @@ MessageCenter 提供了丰富的事件，供其他后端模块订阅以响应消
 - 记录失败日志
 - 触发重试机制
 
+**发布说明**：MessageCenter 在发送失败或重试达上限时会发布此事件（Application 层在标记失败时发布）。若尚未实现邮件/短信等外部发送任务，将在实现该任务时接入发布逻辑。
+
+**内部如何发布（实现者必读）**：  
+在 Application 层，发送失败或重试达上限时请调用 `MessageAppService.MarkAsFailedAndPublishEventAsync(messageId, failureReason)`。该方法会：
+1. 将消息状态标记为失败并持久化；
+2. 发布 `MessageFailedEvent`（发布失败仅记日志，不抛异常）。
+
+调用时机示例：
+- 邮件/短信发送任务执行失败且不再重试时；
+- `RetryAsync` 触发的发送任务再次失败时；
+- 第三方通道返回不可重试错误时。
+
+该方法为 `internal`，仅可在 `MessageCenter.Application` 程序集内调用；若发送逻辑在 Integration 层，需通过 Application 层暴露的接口或内部服务间接调用。
+
 #### 6. MessageStatusChangedEvent - 消息状态变更事件
 
 **命名空间**：`MessageCenter.Application.Contracts.Events`
@@ -558,6 +572,16 @@ public class YourModule : AbpModule
 
 确保事件总线已正确配置（如 Redis、RabbitMQ 等），以便跨模块/跨服务通信。
 
+### 跨服务订阅前提
+
+若外部服务与 MessageCenter **不在同一进程**（独立部署的微服务），要订阅上述事件或向 MessageCenter 发送事件，必须满足：
+
+1. **使用分布式事件总线**：不能仅依赖进程内事件总线，需配置 **Redis** 或 **RabbitMQ** 等分布式传输。
+2. **连接同一实例/集群**：MessageCenter 与所有需要发布/订阅 MessageCenter 事件的外部服务，必须使用**同一套**事件总线（同一 Redis 实例或同一 RabbitMQ 集群、相同连接与命名策略）。
+3. **引用契约**：外部服务仅需引用 `MessageCenter.Application.Contracts`（及 `MessageCenter.Domain.Shared` 若需枚举），**不**引用 `MessageCenter.Application` 或 HttpApi；模块仅 `DependsOn(MessageCenterApplicationContractsModule)` 及事件总线模块。
+
+具体配置步骤见下文「[跨服务事件总线配置](#跨服务事件总线配置)」。
+
 ### 事件订阅最佳实践
 
 1. **幂等性**：确保事件处理器是幂等的，可以安全地重复执行
@@ -565,6 +589,98 @@ public class YourModule : AbpModule
 3. **性能优化**：避免在事件处理器中执行耗时操作
 4. **业务过滤**：根据 `BusinessType` 和 `BusinessId` 过滤相关事件
 5. **异步处理**：使用异步方法处理事件
+
+## 通过事件请求发消息（与调用方解耦）
+
+外部服务可以不直接调用 `IMessageAppService` 或 HTTP API，而是通过**发布事件**请求 MessageCenter 发送消息，实现与 MessageCenter 的解耦（仅依赖契约与事件总线）。
+
+### 事件契约：SendMessageRequestedEvent
+
+**命名空间**：`MessageCenter.Application.Contracts.Events`
+
+| 属性 | 类型 | 说明 |
+|------|------|------|
+| `CreateMessageDto` | `CreateMessageDto` | 发消息所需数据（与创建接口一致） |
+| `RequestId` | `string?` | 幂等键，便于去重（可选；MessageCenter 可据此做幂等处理） |
+| `SourceService` | `string?` | 来源服务名，便于排查与审计（可选） |
+
+### 前提条件
+
+- 与 MessageCenter 使用**同一套分布式事件总线**（Redis 或 RabbitMQ），参见「[跨服务事件总线配置](#跨服务事件总线配置)」。
+- 仅引用 `MessageCenter.Application.Contracts`（及 `MessageCenter.Domain.Shared`），**不**引用 `MessageCenter.Application` 或 HttpApi。
+
+### 发布方式示例
+
+```csharp
+using MessageCenter.Application.Contracts.DTOs;
+using MessageCenter.Application.Contracts.Events;
+using MessageCenter.Domain.Shared.Enums;
+using Volo.Abp.EventBus.Distributed;
+
+public class OrderNotificationService : ITransientDependency
+{
+    private readonly IDistributedEventBus _eventBus;
+
+    public OrderNotificationService(IDistributedEventBus eventBus)
+    {
+        _eventBus = eventBus;
+    }
+
+    public async Task RequestSendOrderMessageAsync(Order order)
+    {
+        await _eventBus.PublishAsync(new SendMessageRequestedEvent
+        {
+            CreateMessageDto = new CreateMessageDto
+            {
+                Title = "订单创建成功",
+                Content = $"您的订单 {order.OrderNumber} 已创建",
+                MessageType = MessageType.Notification,
+                Channel = MessageChannel.InApp,
+                Priority = MessagePriority.Normal,
+                ReceiverId = order.UserId.ToString(),
+                ReceiverName = order.UserName,
+                BusinessType = "Order",
+                BusinessId = order.Id.ToString(),
+                LinkUrl = $"/orders/{order.Id}"
+            },
+            RequestId = $"order-{order.Id}-created",  // 可选：幂等
+            SourceService = "OrderService"             // 可选：审计
+        });
+    }
+}
+```
+
+MessageCenter 订阅该事件后会调用 `IMessageAppService.CreateAsync` 执行发消息；创建后仍会按现有逻辑发布 `MessageCreatedEvent` 等，SignalR 与其它订阅者行为不变。异常仅在 MessageCenter 内部记录，不重新抛出，避免事件总线无限重试。
+
+## 跨服务事件总线配置
+
+要使「外部发布 → MessageCenter 订阅」和「MessageCenter 发布 → 外部订阅」在多服务/多进程下生效，所有相关服务必须配置**同一套**分布式事件总线。
+
+### 使用 Redis
+
+1. **安装包**：`Volo.Abp.EventBus.Redis`（或 ABP 官方推荐的 Redis 集成包）。
+2. **配置连接**：在 MessageCenter.HttpApi.Host 与外部服务的 Host 的 `appsettings.json` 中配置**同一** Redis 连接，例如：
+   ```json
+   {
+     "Redis": {
+       "Configuration": "localhost:6379"
+     }
+   }
+   ```
+3. **模块依赖**：在对应宿主模块中 `DependsOn(AbpEventBusRedisModule)`，并调用 `Configure<AbpRedisOptions>(options => options.ConnectionString = configuration["Redis:Configuration"])` 使用该连接。
+4. **说明**：同一 Redis 实例 + 相同配置即可实现跨服务发布/订阅。
+
+### 使用 RabbitMQ
+
+1. **安装包**：`Volo.Abp.EventBus.RabbitMQ`。
+2. **配置连接**：各服务连接**同一** RabbitMQ 集群，并按 ABP 文档配置 Exchange/Queue 命名约定。
+3. **说明**：需保证各服务使用相同连接与命名策略，才能收到同一批事件。
+
+### 配置检查清单
+
+- [ ] MessageCenter HttpApi.Host 已启用分布式事件总线（Redis 或 RabbitMQ）并配置连接。
+- [ ] 所有需要发布/订阅 MessageCenter 事件的外部服务已启用**同一**传输且连接**同一**实例/集群。
+- [ ] 各服务仅引用 `MessageCenter.Application.Contracts`（及事件总线包），不引用 MessageCenter.Application/HttpApi（解耦模式）。
 
 ## 服务接口说明
 
