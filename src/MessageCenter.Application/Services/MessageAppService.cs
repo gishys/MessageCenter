@@ -553,6 +553,27 @@ public class MessageAppService(
         await _messageRepository.UpdateAsync(message);
     }
 
+    public virtual async Task<MessageDto> UpdateAsync(Guid id, UpdateMessageDto input)
+    {
+        var message = await _messageRepository.GetAsync(id);
+
+        if (!string.IsNullOrWhiteSpace(input.Title))
+        {
+            message.Title = input.Title!.Trim();
+        }
+
+        if (input.Summary != null)
+        {
+            message.Summary = string.IsNullOrWhiteSpace(input.Summary) ? null : input.Summary.Trim();
+        }
+
+        message.Body = input.Body ?? string.Empty;
+
+        await _messageRepository.UpdateAsync(message);
+
+        return ObjectMapper.Map<Message, MessageDto>(message);
+    }
+
     private async Task<Message> CreateMessageEntityAsync(CreateMessageDto input)
     {
         var message = new Message(
@@ -571,11 +592,13 @@ public class MessageAppService(
             ReceiverEmail = input.ReceiverEmail,
             ReceiverPhone = input.ReceiverPhone,
             TemplateId = input.TemplateId,
+            ConversationId = input.ConversationId,
             BusinessType = input.BusinessType,
             BusinessId = input.BusinessId,
             ScheduledSendTime = input.ScheduledSendTime?.ToUniversalTime(),
             ExpirationTime = (input.ExpirationTime?.ToUniversalTime()) ?? DateTime.UtcNow.AddDays(MessageCenterConsts.DefaultExpirationDays),
             Extension = input.Extension,
+            Body = input.Body,
             Tags = input.Tags,
             LinkUrl = input.LinkUrl,
             MaxRetryCount = input.MaxRetryCount

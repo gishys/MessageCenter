@@ -83,6 +83,11 @@ public class CreateMessageDto
     public string? TemplateVariables { get; set; }
 
     /// <summary>
+    /// 会话ID（用于按会话聚合消息）
+    /// </summary>
+    public Guid? ConversationId { get; set; }
+
+    /// <summary>
     /// 业务类型
     /// </summary>
     public string? BusinessType { get; set; }
@@ -106,6 +111,11 @@ public class CreateMessageDto
     /// 扩展属性（JSON格式）
     /// </summary>
     public string? Extension { get; set; }
+
+    /// <summary>
+    /// 消息体（块列表 JSON），用于前端富展示
+    /// </summary>
+    public string? Body { get; set; }
 
     /// <summary>
     /// 消息标签

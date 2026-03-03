@@ -34,6 +34,7 @@ public static class MessageCenterDbContextModelCreatingExtensions
             b.Property(x => x.Tags).HasMaxLength(500);
             b.Property(x => x.LinkUrl).HasMaxLength(1000);
             b.Property(x => x.AttachmentIds).HasMaxLength(2000);
+            b.Property(x => x.Body).HasColumnType("text");
 
             b.HasIndex(x => x.ReceiverId);
             b.HasIndex(x => x.SenderId);
@@ -42,6 +43,7 @@ public static class MessageCenterDbContextModelCreatingExtensions
             b.HasIndex(x => new { x.BusinessType, x.BusinessId });
             b.HasIndex(x => x.CreationTime);
             b.HasIndex(x => x.ScheduledSendTime);
+            b.HasIndex(x => x.ConversationId);
         });
 
         builder.Entity<MessageReceipt>(b =>
@@ -91,6 +93,19 @@ public static class MessageCenterDbContextModelCreatingExtensions
 
             b.HasIndex(x => x.Channel);
             b.HasIndex(x => new { x.Channel, x.IsDefault });
+        });
+
+        builder.Entity<Conversation>(b =>
+        {
+            b.ToTable($"{MessageCenterConsts.DbTablePrefix}Conversations", MessageCenterConsts.DbSchema);
+            b.ConfigureByConvention();
+
+            b.Property(x => x.Type).IsRequired().HasMaxLength(50);
+            b.Property(x => x.Title).HasMaxLength(200);
+            b.Property(x => x.ParticipantIds).IsRequired();
+
+            b.HasIndex(x => x.Type);
+            b.HasIndex(x => x.LastMessageAt);
         });
     }
 }

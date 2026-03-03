@@ -86,6 +86,11 @@ public class Message : FullAuditedAggregateRoot<Guid>, IMultiTenant
     public Guid? TemplateId { get; set; }
 
     /// <summary>
+    /// 会话ID（用于按会话聚合消息）
+    /// </summary>
+    public Guid? ConversationId { get; set; }
+
+    /// <summary>
     /// 业务类型
     /// </summary>
     public string? BusinessType { get; set; }
@@ -139,6 +144,11 @@ public class Message : FullAuditedAggregateRoot<Guid>, IMultiTenant
     /// 扩展属性（JSON格式）
     /// </summary>
     public string? Extension { get; set; }
+
+    /// <summary>
+    /// 消息体（块列表的 JSON 表示，用于富展示）
+    /// </summary>
+    public string? Body { get; set; }
 
     /// <summary>
     /// 消息标签（用于分类和搜索）

@@ -75,6 +75,11 @@ public interface IMessageAppService : IApplicationService
         DateTime? endTime = null);
 
     /// <summary>
+    /// 更新消息内容（主要用于更新聊天块 Body）
+    /// </summary>
+    Task<MessageDto> UpdateAsync(Guid id, UpdateMessageDto input);
+
+    /// <summary>
     /// 重试发送失败的消息
     /// </summary>
     Task RetryAsync(Guid id);

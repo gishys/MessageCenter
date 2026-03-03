@@ -37,6 +37,24 @@ public class MessageController(IMessageAppService messageAppService) : AbpContro
     }
 
     /// <summary>
+    /// 更新消息内容（主要用于更新聊天块 Body）
+    /// </summary>
+    /// <param name="id">消息ID</param>
+    /// <param name="input">更新参数</param>
+    /// <returns>更新后的消息对象</returns>
+    /// <response code="200">成功更新消息</response>
+    /// <response code="404">消息不存在</response>
+    /// <response code="401">未授权</response>
+    [HttpPut("{id}")]
+    [ProducesResponseType(typeof(MessageDto), 200)]
+    [ProducesResponseType(404)]
+    [ProducesResponseType(401)]
+    public async Task<MessageDto> UpdateAsync(Guid id, [FromBody] UpdateMessageDto input)
+    {
+        return await _messageAppService.UpdateAsync(id, input);
+    }
+
+    /// <summary>
     /// 批量创建并发送消息
     /// </summary>
     /// <param name="inputs">创建消息的请求参数列表（最多1000条）</param>

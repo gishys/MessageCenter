@@ -15,6 +15,7 @@ public class MessageCenterDbContext(DbContextOptions<MessageCenterDbContext> opt
     public DbSet<MessageReceipt> MessageReceipts { get; set; }
     public DbSet<MessageTemplate> MessageTemplates { get; set; }
     public DbSet<MessageChannelConfig> MessageChannelConfigs { get; set; }
+    public DbSet<Conversation> Conversations { get; set; }
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
