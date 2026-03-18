@@ -48,4 +48,14 @@ public interface IMessageRealtimeService
     /// <param name="messageId">消息ID</param>
     /// <param name="status">新状态</param>
     Task NotifyMessageStatusChangedAsync(string receiverId, Guid messageId, string status);
+
+    /// <summary>
+    /// 通知用户任务进度（与消息中心业务解耦，用于文件解析等长时间任务进度推送）
+    /// </summary>
+    /// <param name="receiverId">接收者ID（如用户 Guid 的字符串形式）</param>
+    /// <param name="taskId">任务ID</param>
+    /// <param name="progress">进度 0-100</param>
+    /// <param name="message">可选进度消息</param>
+    /// <param name="status">可选状态</param>
+    Task NotifyTaskProgressAsync(string receiverId, Guid taskId, int progress, string? message = null, string? status = null);
 }

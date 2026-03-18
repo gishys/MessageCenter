@@ -150,4 +150,30 @@ public class MessageRealtimeService(
             _logger.LogError(ex, "通知消息状态变更失败");
         }
     }
+
+    public async Task NotifyTaskProgressAsync(string receiverId, Guid taskId, int progress, string? message = null, string? status = null)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(receiverId))
+            {
+                _logger.LogWarning("接收者ID为空，跳过任务进度推送");
+                return;
+            }
+            var groupName = $"user_{receiverId}";
+            await _hubContext.Clients.Group(groupName).SendAsync("TaskProgress", new
+            {
+                taskId,
+                progress,
+                message,
+                status,
+                timestamp = DateTime.UtcNow
+            });
+            _logger.LogDebug("已向用户 {ReceiverId} 推送任务 {TaskId} 进度 {Progress}%", receiverId, taskId, progress);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "推送任务进度失败 TaskId={TaskId}", taskId);
+        }
+    }
 }

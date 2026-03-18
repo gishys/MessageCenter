@@ -293,4 +293,44 @@ public class MessageRealtimeService(
             // 不抛出异常，避免影响主流程
         }
     }
+
+    /// <summary>
+    /// 通知用户任务进度（与消息中心业务解耦）
+    /// </summary>
+    public virtual async Task NotifyTaskProgressAsync(string receiverId, Guid taskId, int progress, string? message = null, string? status = null)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(receiverId))
+            {
+                _logger.LogWarning("接收者ID为空，跳过任务进度通知");
+                return;
+            }
+
+            if (taskId == Guid.Empty)
+            {
+                _logger.LogWarning("任务ID无效，跳过任务进度通知");
+                return;
+            }
+
+            if (progress is < 0 or > 100)
+            {
+                _logger.LogWarning("进度值无效: {Progress}，跳过任务进度通知", progress);
+                return;
+            }
+
+            await _distributedEventBus.PublishAsync(new TaskProgressNotifiedEvent
+            {
+                ReceiverId = receiverId,
+                TaskId = taskId,
+                Progress = progress,
+                Message = message,
+                Status = status
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "发布任务进度事件失败，ReceiverId: {ReceiverId}, TaskId: {TaskId}", receiverId, taskId);
+        }
+    }
 }
