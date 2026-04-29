@@ -34,7 +34,7 @@ public class MessageCenterHttpApiHostModule : AbpModule
 
         ConfigureConventionalControllers();
         ConfigureAuthentication(context, configuration);
-        ConfigureSignalR(context);
+        ConfigureSignalR(context, configuration);
         ConfigureLocalization();
         ConfigureSwaggerServices(context);
         ConfigureCors(context, configuration);
@@ -192,16 +192,33 @@ public class MessageCenterHttpApiHostModule : AbpModule
             });
     }
 
-    private static void ConfigureSignalR(ServiceConfigurationContext context)
+    private const int DefaultSignalRClientTimeoutSeconds = 120;
+    private const int DefaultSignalRKeepAliveSeconds = 15;
+    private const int DefaultSignalRMaximumReceiveMessageSizeBytes = 1024 * 1024;
+
+    private static void ConfigureSignalR(ServiceConfigurationContext context, IConfiguration configuration)
     {
+        var clientTimeoutSeconds = ReadPositiveInt(
+            configuration, "SignalR:ClientTimeoutSeconds", DefaultSignalRClientTimeoutSeconds);
+        var keepAliveSeconds = ReadPositiveInt(
+            configuration, "SignalR:KeepAliveSeconds", DefaultSignalRKeepAliveSeconds);
+        var maximumReceiveMessageSizeBytes = ReadPositiveInt(
+            configuration, "SignalR:MaximumReceiveMessageSizeBytes", DefaultSignalRMaximumReceiveMessageSizeBytes);
+
         context.Services.AddSignalR(options =>
         {
             // 配置SignalR选项
             options.EnableDetailedErrors = context.Services.GetHostingEnvironment().IsDevelopment();
-            options.ClientTimeoutInterval = TimeSpan.FromSeconds(30);
-            options.KeepAliveInterval = TimeSpan.FromSeconds(15);
-            options.MaximumReceiveMessageSize = 1024 * 1024; // 1MB
+            options.ClientTimeoutInterval = TimeSpan.FromSeconds(clientTimeoutSeconds);
+            options.KeepAliveInterval = TimeSpan.FromSeconds(keepAliveSeconds);
+            options.MaximumReceiveMessageSize = maximumReceiveMessageSizeBytes;
         });
+    }
+
+    private static int ReadPositiveInt(IConfiguration configuration, string key, int defaultValue)
+    {
+        var value = configuration.GetValue<int?>(key);
+        return value is > 0 ? value.Value : defaultValue;
     }
 
     private static void ConfigureLocalization()

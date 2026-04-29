@@ -43,10 +43,27 @@ public class MessageHub(ILogger<MessageHub> logger) : AbpHub
 
         if (exception != null)
         {
-            _logger.LogError(exception, "用户 {UserId} 断开连接时发生错误", userId);
+            if (IsClientTimeoutDisconnect(exception))
+            {
+                _logger.LogWarning(
+                    exception,
+                    "用户 {UserId} 因 SignalR ClientTimeoutInterval 断开连接，ConnectionId: {ConnectionId}",
+                    userId,
+                    Context.ConnectionId);
+            }
+            else
+            {
+                _logger.LogError(exception, "用户 {UserId} 断开连接时发生错误", userId);
+            }
         }
 
         await base.OnDisconnectedAsync(exception);
+    }
+
+    private static bool IsClientTimeoutDisconnect(Exception exception)
+    {
+        return exception is OperationCanceledException
+            && exception.Message.Contains("ClientTimeoutInterval", StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>
