@@ -1,59 +1,67 @@
 using Microsoft.Extensions.Logging;
+using System.Security.Claims;
 using Volo.Abp.AspNetCore.SignalR;
+using Volo.Abp.Security.Claims;
 
 namespace MessageCenter.Integration.Hubs;
 
 /// <summary>
-/// 消息实时推送Hub
-/// 提供实时消息推送功能，支持点对点和广播消息
-/// 位于集成层，作为基础设施组件
+/// Message realtime push hub.
 /// </summary>
 public class MessageHub(ILogger<MessageHub> logger) : AbpHub
 {
     private readonly ILogger<MessageHub> _logger = logger;
 
     /// <summary>
-    /// 客户端连接时触发
+    /// Triggered when a client connects.
     /// </summary>
     public override async Task OnConnectedAsync()
     {
         var userId = GetUserId();
         if (!string.IsNullOrEmpty(userId))
         {
-            // 将用户添加到对应的组
             await Groups.AddToGroupAsync(Context.ConnectionId, $"user_{userId}");
-            _logger.LogInformation("用户 {UserId} 已连接到消息Hub，连接ID: {ConnectionId}", userId, Context.ConnectionId);
+            _logger.LogInformation(
+                "User {UserId} connected to MessageHub. ConnectionId: {ConnectionId}",
+                userId,
+                Context.ConnectionId);
         }
 
         await base.OnConnectedAsync();
     }
 
     /// <summary>
-    /// 客户端断开连接时触发
+    /// Triggered when a client disconnects.
     /// </summary>
     public override async Task OnDisconnectedAsync(Exception? exception)
     {
         var userId = GetUserId();
         if (!string.IsNullOrEmpty(userId))
         {
-            // 从组中移除用户
             await Groups.RemoveFromGroupAsync(Context.ConnectionId, $"user_{userId}");
-            _logger.LogInformation("用户 {UserId} 已断开消息Hub连接，连接ID: {ConnectionId}", userId, Context.ConnectionId);
+            _logger.LogInformation(
+                "User {UserId} disconnected from MessageHub. ConnectionId: {ConnectionId}",
+                userId,
+                Context.ConnectionId);
         }
 
         if (exception != null)
         {
             if (IsClientTimeoutDisconnect(exception))
             {
-                _logger.LogWarning(
-                    exception,
-                    "用户 {UserId} 因 SignalR ClientTimeoutInterval 断开连接，ConnectionId: {ConnectionId}",
+                _logger.LogInformation(
+                    "User {UserId} disconnected from MessageHub because the SignalR client timed out. ConnectionId: {ConnectionId}, Reason: {Reason}",
                     userId,
-                    Context.ConnectionId);
+                    Context.ConnectionId,
+                    exception.Message);
             }
             else
             {
-                _logger.LogError(exception, "用户 {UserId} 断开连接时发生错误", userId);
+                _logger.LogError(
+                    exception,
+                    "User {UserId} disconnected from MessageHub with an unexpected error. ConnectionId: {ConnectionId}",
+                    userId,
+                    Context.ConnectionId);
             }
         }
 
@@ -67,29 +75,37 @@ public class MessageHub(ILogger<MessageHub> logger) : AbpHub
     }
 
     /// <summary>
-    /// 客户端加入指定组（如加入特定业务组）
+    /// Adds the current client connection to a business group.
     /// </summary>
     public async Task JoinGroup(string groupName)
     {
         await Groups.AddToGroupAsync(Context.ConnectionId, groupName);
-        _logger.LogInformation("连接 {ConnectionId} 已加入组 {GroupName}", Context.ConnectionId, groupName);
+        _logger.LogInformation(
+            "Connection {ConnectionId} joined group {GroupName}",
+            Context.ConnectionId,
+            groupName);
     }
 
     /// <summary>
-    /// 客户端离开指定组
+    /// Removes the current client connection from a business group.
     /// </summary>
     public async Task LeaveGroup(string groupName)
     {
         await Groups.RemoveFromGroupAsync(Context.ConnectionId, groupName);
-        _logger.LogInformation("连接 {ConnectionId} 已离开组 {GroupName}", Context.ConnectionId, groupName);
+        _logger.LogInformation(
+            "Connection {ConnectionId} left group {GroupName}",
+            Context.ConnectionId,
+            groupName);
     }
 
     /// <summary>
-    /// 获取当前用户ID
+    /// Gets the current authenticated user id from ABP, JWT, or SignalR user identifiers.
     /// </summary>
     private string? GetUserId()
     {
-        return Context.User?.FindFirst("sub")?.Value 
+        return Context.User?.FindFirst(AbpClaimTypes.UserId)?.Value
+            ?? Context.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value
+            ?? Context.User?.FindFirst("sub")?.Value
             ?? Context.User?.FindFirst("nameid")?.Value
             ?? Context.UserIdentifier;
     }
